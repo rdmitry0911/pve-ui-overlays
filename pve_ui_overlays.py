@@ -100,13 +100,21 @@ BEGIN = b"    <!-- pve-ui-overlays begin: package-managed, do not edit (run `pve
 END = b"    <!-- pve-ui-overlays end -->\n"
 ANCHOR = b'    <script type="text/javascript" src="/pve2/js/pvemanagerlib.js?ver=[% version %]"></script>\n'
 
-# Older client versions that divert and render the template on their own.
+# Older client versions that divert and render the template on their own.  Their
+# diversion is left alone (overlays go into their render) until the client ships
+# a descriptor of the given id: then the diversion is a leftover of the upgrade
+# (prerm does not run on upgrades) and is taken over.
 LEGACY_RENDERERS: dict[str, dict[str, Any]] = {
-    "qsm-pve-direct": {"suffix": ".qsm-pve-direct-orig",
-                       "marker": b"<!-- qsm-pve-direct PVE 9 console overlay", "takeover": False},
-    "qdev-host-pve": {"suffix": ".qdev-host-pve-orig",
-                      "marker": b"<!-- qdev-host-pve PVE 9 hardware overlay begin", "takeover": True},
+    "qsm-pve-direct": {"suffix": ".qsm-pve-direct-orig", "descriptor": "qsm-pve-direct",
+                       "marker": b"<!-- qsm-pve-direct PVE 9 console overlay"},
+    "qdev-host-pve": {"suffix": ".qdev-host-pve-orig", "descriptor": "qdev-host",
+                      "marker": b"<!-- qdev-host-pve PVE 9 hardware overlay begin"},
 }
+# Blocks of older clients that may linger in a legacy render after an upgrade.
+LEGACY_BLOCKS = (
+    (b"    <!-- qdev-host-pve PVE 9 hardware overlay begin; package-managed, do not edit -->\n",
+     b"    <!-- qdev-host-pve PVE 9 hardware overlay end -->\n"),
+)
 
 MAX_TEMPLATE = 256 * 1024
 MAX_SCRIPT = 4 * 1024 * 1024
@@ -252,14 +260,17 @@ def js_literal(value: Any) -> bytes:
 
 
 def strip_block(template: bytes) -> bytes:
-    while True:
-        begin = template.find(BEGIN)
-        if begin < 0:
-            return template
-        end = template.find(END, begin)
-        if end < 0:
-            raise UnsafeState("the pve-ui-overlays block in the PVE template is damaged (begin without end)")
-        template = template[:begin] + template[end + len(END):]
+    """Remove our block and any lingering block of an older client version."""
+    for begin_marker, end_marker in ((BEGIN, END), *LEGACY_BLOCKS):
+        while True:
+            begin = template.find(begin_marker)
+            if begin < 0:
+                break
+            end = template.find(end_marker, begin)
+            if end < 0:
+                raise UnsafeState("an overlay block in the PVE template is damaged (begin without end)")
+            template = template[:begin] + template[end + len(end_marker):]
+    return template
 
 
 # -------------------------------------------------------------- dpkg access
@@ -526,7 +537,7 @@ class Manager:
                                                     "overlays": [o.id for o in overlays], "version": 1},
                                                    sort_keys=True).encode() + b"\n", 0o644, self.root_owner)
 
-    def _plan(self) -> tuple[str, str | None, bytes, bytes | None]:
+    def _plan(self, overlays: list[Overlay]) -> tuple[str, str | None, bytes, bytes | None]:
         """(mode, owner, base template, current template or None). mode: own | stock | legacy | takeover."""
         owner = self.div.owner(self.template)
         if owner == PACKAGE:
@@ -537,7 +548,7 @@ class Manager:
         if legacy is None:
             raise UnsafeState(f"PVE template is diverted by another package ({owner})")
         stock = read_regular(Path(f"{self.template}{legacy['suffix']}"), MAX_TEMPLATE, self.root_owner)
-        if legacy["takeover"]:
+        if any(o.id == legacy["descriptor"] for o in overlays):
             return "takeover", owner, stock, self._current()
         return "legacy", owner, stock, self._current()
 
@@ -563,7 +574,7 @@ class Manager:
         """Bring the PVE page in line with the installed overlays. Idempotent; writes only on change."""
         overlays = self.load_overlays()
         try:
-            mode, owner, base, current = self._plan()
+            mode, owner, base, current = self._plan(overlays)
             if mode == "takeover":
                 legacy = LEGACY_RENDERERS[owner]
                 if current is not None and legacy["marker"] not in current and BEGIN not in current:
@@ -620,7 +631,7 @@ class Manager:
         """Like reconcile() but without writing: 'stale' means a reconcile would change the page."""
         overlays = self.load_overlays()
         try:
-            mode, owner, base, current = self._plan()
+            mode, owner, base, current = self._plan(overlays)
         except UnsafeState as error:
             return Result("foreign-diversion", [], {}, False, str(error))
         try:
@@ -673,7 +684,7 @@ class Manager:
         if owner == PACKAGE:
             self._restore_own()
             return Result("inactive", [], {}, True, "stock template restored")
-        if owner in LEGACY_RENDERERS and not LEGACY_RENDERERS[owner]["takeover"] and self.template.exists():
+        if owner in LEGACY_RENDERERS and self.template.exists():
             current = self._current()
             new = strip_block(current)
             if new != current:
@@ -861,8 +872,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"pve-ui-overlays: {args.command}d {args.id}; {m.status()}")
             return 0
         if args.command == "render":
-            mode, _owner, base, current = m._plan()
             overlays = m.load_overlays()
+            mode, _owner, base, current = m._plan(overlays)
             rendered, _skipped = m._usable(overlays, strip_block(current) if mode == "legacy" else b"")
             sys.stdout.buffer.write(m.render(current if mode == "legacy" else base, rendered))
             return 0

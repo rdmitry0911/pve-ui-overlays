@@ -150,13 +150,17 @@ class OverlayTests(unittest.TestCase):
 
     def test_alongside_legacy_qsm(self):
         legacy = self._legacy_qsm()
+        # a block left behind by an upgraded qdev-host-pve 0.2.0 is cleaned up
+        leftover = (b"    <!-- qdev-host-pve PVE 9 hardware overlay begin; package-managed, do not edit -->\n"
+                    b'    <script type="text/javascript" src="/pve2/js/qdev-host.js?ver=[% version %]-qdev-overlay-0123456789abcdef"></script>\n'
+                    b"    <!-- qdev-host-pve PVE 9 hardware overlay end -->\n")
+        (self.sb.root / M.TEMPLATE).write_bytes(legacy.replace(M.ANCHOR, M.ANCHOR + leftover, 1))
         self.sb.descriptor("qdev-host")
-        # a new-style qsm descriptor for a script the legacy render already has must not be duplicated
-        self.sb.descriptor("qsm-pve-direct", order=40, scripts=["/pve2/js/qsm-pve-direct-console.js"])
         r = self.sb.m.reconcile()
         self.assertEqual((r.state, r.overlays), ("alongside-legacy", ["qdev-host"]))
-        self.assertIn("qsm-pve-direct", r.skipped)
         t = self.sb.template()
+        self.assertNotIn(b"qdev-host-pve PVE 9 hardware overlay", t)
+        self.assertEqual(t.count(b"/pve2/js/qdev-host.js"), 1)
         self.assertEqual(t.count(b"qsm-pve-direct-console.js"), 1)
         self.assertIn(QSM_MARKER, t)
         self.assertIn(b"/pve2/js/qdev-host.js", t)
@@ -170,13 +174,18 @@ class OverlayTests(unittest.TestCase):
         # remove gives qsm its own render back
         self.sb.m.remove()
         self.assertEqual(self.sb.template(), legacy)
-        # legacy qsm uninstalls (restores stock, drops diversion): we take ownership
-        (self.sb.root / M.TEMPLATE).write_bytes(STOCK.read_bytes())
-        Path(f"{self.sb.root / M.TEMPLATE}.qsm-pve-direct-orig").unlink()
-        self.sb.m.div.state.unlink()
+        # qsm-pve-direct is upgraded to a descriptor-based version: prerm did not run (upgrade), its
+        # diversion and render are leftovers -> taken over and rendered from the descriptor
+        self.sb.m.reconcile()
+        self.sb.descriptor("qsm-pve-direct", order=40, scripts=["/pve2/js/qsm-pve-direct-console.js"])
         r = self.sb.m.reconcile()
         self.assertEqual((r.state, r.overlays), ("active", ["qsm-pve-direct", "qdev-host"]))
         self.assertEqual(self.sb.m.div.owner(self.sb.root / M.TEMPLATE), M.PACKAGE)
+        self.assertFalse(Path(f"{self.sb.root / M.TEMPLATE}.qsm-pve-direct-orig").exists())
+        t = self.sb.template()
+        self.assertNotIn(QSM_MARKER, t)
+        self.assertEqual(t.count(b"qsm-pve-direct-console.js"), 1)
+        self.assertIn(b"-qsm-pve-direct-" + M.sha256(b"/* qsm */\n")[:16].encode(), t)
 
     def test_takeover_of_legacy_qdev_host_pve(self):
         stock = STOCK.read_bytes()
