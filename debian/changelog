@@ -1,0 +1,7 @@
+pve-ui-overlays (0.1.0) unstable; urgency=medium
+
+  * First release: single owner of the PVE index.html.tpl diversion, overlay
+    descriptors in overlays.d, allow-list of pve-manager templates, dpkg file
+    triggers, CLI and Python API, coexistence with older self-diverting clients.
+
+ -- Dmitry R <rdmitry0911@gmail.com>  Sat, 07 Nov 2026 23:30:00 +0200

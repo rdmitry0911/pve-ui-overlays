@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+case "$1" in
+    remove|deconfigure)
+        if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+            systemctl disable --now pve-ui-overlays-reconcile.path >/dev/null 2>&1 || true
+        fi
+        /usr/sbin/pve-ui-overlays remove || true
+        ;;
+esac
+#DEBHELPER#
+exit 0

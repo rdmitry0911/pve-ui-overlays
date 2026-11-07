@@ -1,0 +1,9 @@
+[Unit]
+Description=Re-render PVE web UI overlays
+Documentation=https://github.com/rdmitry0911/pve-ui-overlays
+
+[Service]
+Type=oneshot
+# Needed while an older qsm-pve-direct still renders the template itself; the
+# write is skipped when the page is already up to date, so there is no loop.
+ExecStart=/usr/sbin/pve-ui-overlays reconcile

@@ -1,0 +1,10 @@
+[Unit]
+Description=Re-render PVE web UI overlays when index.html.tpl changes
+Documentation=https://github.com/rdmitry0911/pve-ui-overlays
+
+[Path]
+PathChanged=/usr/share/pve-manager/index.html.tpl
+Unit=pve-ui-overlays-reconcile.service
+
+[Install]
+WantedBy=multi-user.target

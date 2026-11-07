@@ -1,0 +1,4 @@
+interest-noawait /usr/share/pve-manager/index.html.tpl
+interest-noawait /usr/share/pve-manager/js
+interest-noawait /usr/share/pve-ui-overlays/overlays.d
+interest-noawait /usr/share/pve-ui-overlays/manifest.d

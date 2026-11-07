@@ -1,0 +1,10 @@
+{
+  "id": "example-overlay",
+  "order": 50,
+  "description": "What a client package ships as /usr/share/pve-ui-overlays/overlays.d/ID.json",
+  "scripts": ["/pve2/js/example-overlay.js"],
+  "globals": {
+    "EXAMPLE_OVERLAY_CONFIG": {"file": "/etc/example-overlay/ui.json", "keys": ["port"], "default": {"port": 8099}}
+  },
+  "requires": ["/usr/lib/example-overlay/service.py"]
+}

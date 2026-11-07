@@ -1,0 +1,21 @@
+Source: pve-ui-overlays
+Section: contrib/admin
+Priority: optional
+Maintainer: Dmitry R <rdmitry0911@gmail.com>
+Build-Depends: debhelper-compat (= 13), dh-python, python3
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/rdmitry0911/pve-ui-overlays
+
+Package: pve-ui-overlays
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}, pve-manager (>= 9)
+Description: shared, guarded script injection for the Proxmox VE web UI
+ Proxmox VE has no plug-in API for its web UI. This package owns the single
+ dpkg diversion of /usr/share/pve-manager/index.html.tpl and renders every
+ registered overlay (a JSON descriptor plus a script under
+ /usr/share/pve-manager/js/) into the page, so packages that extend the UI
+ (qsm-pve-direct, qdev-host-pve, ...) do not depend on their install order.
+ The template is patched only for reviewed pve-manager versions; on an
+ unknown upgrade the stock page is restored. CLI and Python API:
+ register, unregister, enable, disable, reconcile, status, check.

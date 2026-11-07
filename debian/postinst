@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+case "$1" in
+    configure)
+        install -d -m 0755 /var/lib/pve-ui-overlays /var/lib/pve-ui-overlays/overlays.d /etc/pve-ui-overlays/overlays.d /etc/pve-ui-overlays/manifest.d
+        if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+            systemctl enable --now pve-ui-overlays-reconcile.path || true
+        fi
+        /usr/sbin/pve-ui-overlays reconcile || echo "pve-ui-overlays: PVE web UI was not changed" >&2
+        ;;
+    triggered)
+        /usr/sbin/pve-ui-overlays reconcile || echo "pve-ui-overlays: PVE web UI was not changed" >&2
+        ;;
+esac
+#DEBHELPER#
+exit 0

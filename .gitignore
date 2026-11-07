@@ -1,0 +1,8 @@
+dist/
+__pycache__/
+debian/pve-ui-overlays/
+debian/.debhelper/
+debian/files
+debian/*.log
+debian/*.substvars
+debian/debhelper-build-stamp

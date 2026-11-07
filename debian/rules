@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+# SPDX-License-Identifier: GPL-2.0-or-later
+%:
+	dh $@ --with python3
+
+override_dh_auto_install:
+	install -D -m 644 pve_ui_overlays.py debian/pve-ui-overlays/usr/lib/python3/dist-packages/pve_ui_overlays.py
+	install -D -m 755 pve-ui-overlays debian/pve-ui-overlays/usr/sbin/pve-ui-overlays
+	install -D -m 644 data/pve-manager-index-template.sha256 debian/pve-ui-overlays/usr/share/pve-ui-overlays/pve-manager-index-template.sha256
+	install -d -m 755 debian/pve-ui-overlays/usr/share/pve-ui-overlays/overlays.d debian/pve-ui-overlays/usr/share/pve-ui-overlays/manifest.d
+	install -D -m 644 systemd/pve-ui-overlays-reconcile.path debian/pve-ui-overlays/usr/lib/systemd/system/pve-ui-overlays-reconcile.path
+	install -D -m 644 systemd/pve-ui-overlays-reconcile.service debian/pve-ui-overlays/usr/lib/systemd/system/pve-ui-overlays-reconcile.service
+	install -D -m 644 examples/example-overlay.json debian/pve-ui-overlays/usr/share/doc/pve-ui-overlays/examples/example-overlay.json
+
+override_dh_auto_test:
