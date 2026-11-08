@@ -135,10 +135,43 @@ An installed `qsm-pve-direct` that still diverts the template itself is left
 alone: the overlays are inserted into its rendered copy (`status`:
 `alongside-legacy`), and `pve-ui-overlays-reconcile.path` re-inserts them
 whenever it re-renders. A script the legacy render already carries is not
-duplicated. When that qsm-pve-direct is upgraded to a descriptor-based
-version its own prerm restores the stock template, and the next reconcile
-takes the diversion. An older `qdev-host-pve` diversion is taken over
-directly.
+duplicated, and a block an older `qdev-host-pve` left in that render is
+stripped.
+
+The old package's prerm does not restore the template on an upgrade, so the
+diversion outlives it. Once the package that owns it ships a descriptor
+(`qsm-pve-direct` from 0.4.0+stock4.14~exp224, `qdev-host-pve` from 0.3.0),
+the next reconcile takes the diversion over: it checks the saved stock
+template against the allow-list, removes the old package's diversion and
+diverts the template in its own name. A diverted template without the old
+package's marker is refused.
+
+A self-diverting client version cannot divert the template while this package
+holds the diversion. To go back to one (tested in parts on a nested PVE lab),
+install the older client, then hand the diversion over with the path unit
+stopped, otherwise it diverts the template again at once:
+
+```bash
+apt install --allow-downgrades ./qsm-pve-direct_<older>_amd64.deb
+systemctl stop pve-ui-overlays-reconcile.path
+pve-ui-overlays remove               # stock template back, diversion released
+qsm-pve-direct-ui install            # the old client diverts and renders again
+pve-ui-overlays reconcile            # alongside-legacy for the other overlays
+systemctl start pve-ui-overlays-reconcile.path
+```
+
+## Clients
+
+| Package | Since | Descriptor |
+|---|---|---|
+| [qsm-pve-direct](https://github.com/rdmitry0911/qsm-rd) | 0.4.0+stock4.14~exp224 (unreleased; installed as exp229) | `qsm-pve-direct.json`: the QSM Direct console entry, `window.QSM_DIRECT_ENDPOINT` from `/etc/qsm-pve-direct/signal.json` |
+| [qdev-host-pve](https://github.com/rdmitry0911/qdev-host) | 0.3.0 | `qdev-host.json`: the qdev-host rows of the VM Hardware panel |
+
+Verified on 2026-11-08 on two PVE 9.2.21 nodes, upgrading from the
+self-diverting qsm-pve-direct exp26: one with both
+clients (qdev-host rendered alongside-legacy before, taken over by the
+upgrade), one with qsm-pve-direct's TCP 8006 gateway. Both upgrades were
+rehearsed on a nested PVE lab first, including reboots.
 
 ## Build
 
