@@ -1,0 +1,37 @@
+Title: pve-ui-overlays: let several PVE web UI add-ons coexist without fighting over index.html.tpl
+
+Hi guys, this is mostly for people who write or install add-ons for the Proxmox VE web UI.
+
+Proxmox VE has no plug-in API for its web page. An add-on that wants a button, a menu entry or a panel row has to get its script into /usr/share/pve-manager/index.html.tpl, and the clean way to change a file of another package is dpkg-divert. But a file has exactly one diversion. The second add-on that tries finds a "foreign diversion": depending on how it is written it fails, or it takes the file over and the first add-on silently disappears from the page. Which one you get depends on the install order. I ran into this with two of my own packages, QSM Direct (thread 187042) and qdev-host.
+
+pve-ui-overlays is a small package that owns that one diversion and renders every registered add-on into the page. An add-on package no longer touches the template. It ships a short JSON description in /usr/share/pve-ui-overlays/overlays.d/, puts its script under /usr/share/pve-manager/js/, and depends on pve-ui-overlays:
+
+{
+  "id": "my-addon",
+  "order": 50,
+  "description": "what it adds to the page",
+  "scripts": ["/pve2/js/my-addon.js"],
+  "globals": {"MY_ADDON_ENDPOINT": {"file": "/etc/my-addon/ui.json", "keys": ["port"], "default": {"port": 8017}}},
+  "requires": ["/usr/lib/my-addon/service.py"]
+}
+
+A dpkg file trigger re-renders the page when such a file is added or removed, so nothing has to be called from maintainer scripts. "globals" puts small configuration values into the page as window.NAME, read from a file of the add-on. An add-on whose script or required files are missing is skipped and reported, and never breaks the others.
+
+The safety rules:
+- The template is changed only when the installed pve-manager version and the template's SHA-256 are in an allow-list. After a pve-manager upgrade nobody reviewed, the stock page comes back and "pve-ui-overlays status" says disabled-unsupported-pve until a row is added; "pve-ui-overlays template-hash" prints the row to review.
+- Files are read only if they are regular, root-owned and not writable by others, with size limits, and the template is written atomically and only when it changes.
+- Removing the last add-on, or the package, gives PVE back its untouched stock template.
+- Nothing is loaded into pveproxy or pvedaemon.
+
+It also handles add-ons that still divert the template themselves. It leaves such a diversion alone and adds the other overlays into that add-on's own render. Once that add-on is upgraded to a version with a description, it takes the diversion over, because the old package's prerm does not restore anything on an upgrade.
+
+There is a CLI (status, list, check, reconcile, enable, disable, register, unregister, remove, render, template-hash) and a Python API with the same functions, and the tests run in a sandbox root without root privileges.
+
+Status: version 0.1.0. It runs on three PVE 9.2.21 nodes and a nested lab with QSM Direct and qdev-host as clients, including upgrades from versions of both that diverted the template themselves; the sandbox tests also cover both install orders. The deb is in the signed QSM APT repository (https://rdmitry0911.github.io/qsm-rd/) and attached to the GitHub release.
+
+What I would like to hear: if you maintain a PVE UI add-on, would this contract work for you? What is missing? An order between add-ons, CSS, a way to describe which views an add-on overrides? And if you know of add-ons that also divert index.html.tpl, I would like to add them to the list it can take over safely.
+
+Source and docs: https://github.com/rdmitry0911/pve-ui-overlays
+
+Project sponsor: Takt (https://taktcycles.com/).
+Thank you, Dmitry

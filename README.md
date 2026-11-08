@@ -164,14 +164,19 @@ systemctl start pve-ui-overlays-reconcile.path
 
 | Package | Since | Descriptor |
 |---|---|---|
-| [qsm-pve-direct](https://github.com/rdmitry0911/qsm-rd) | 0.4.0+stock4.14~exp224 (unreleased; installed as exp229) | `qsm-pve-direct.json`: the QSM Direct console entry, `window.QSM_DIRECT_ENDPOINT` from `/etc/qsm-pve-direct/signal.json` |
+| [qsm-pve-direct](https://github.com/rdmitry0911/qsm-rd) | 0.4.0+stock4.14~exp231 (first published; exp224-exp230 were test builds) | `qsm-pve-direct.json`: the QSM Direct console entry, `window.QSM_DIRECT_ENDPOINT` from `/etc/qsm-pve-direct/signal.json` |
 | [qdev-host-pve](https://github.com/rdmitry0911/qdev-host) | 0.3.0 | `qdev-host.json`: the qdev-host rows of the VM Hardware panel |
 
-Verified on 2026-11-08 on two PVE 9.2.21 nodes, upgrading from the
-self-diverting qsm-pve-direct exp26: one with both
-clients (qdev-host rendered alongside-legacy before, taken over by the
-upgrade), one with qsm-pve-direct's TCP 8006 gateway. Both upgrades were
-rehearsed on a nested PVE lab first, including reboots.
+The deb is in the signed [QSM APT repository](https://rdmitry0911.github.io/qsm-rd/)
+(`apt install pve-ui-overlays`; it comes in as a dependency of qsm-pve-direct and
+qdev-host-pve) and attached to the [v0.1.0 release](https://github.com/rdmitry0911/pve-ui-overlays/releases/tag/v0.1.0).
+
+Verified on 2026-11-08 on three PVE 9.2.21 nodes, upgrading from the
+self-diverting qsm-pve-direct exp26 and exp223: one with both clients
+(qdev-host rendered alongside-legacy before, taken over by the upgrade), two
+with qsm-pve-direct's TCP 8006 gateway, where qsm and both clients moved in one
+transaction. The upgrades were rehearsed on a nested PVE lab first, including
+reboots.
 
 ## Build
 
